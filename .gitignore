@@ -15,3 +15,5 @@ dist/all/
 
 # Windows 32-bit installer is 97 MiB (NW.js runtime) — ship via GitHub Releases
 dist/windows-x86/
+
+landing.html
