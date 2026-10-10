@@ -17,3 +17,4 @@ dist/all/
 dist/windows-x86/
 
 landing.html
+.github/workflows/static.yml
