@@ -26,10 +26,8 @@ jobs:
       - name: Assemble site (landing as home)
         run: |
           mkdir -p _site
-          cp -r images assets dist help.html faqs.html landing.html _site/
-          cp index.html _site/app.html
-          cp landing.html _site/index.html
-          sed -i 's|href="index.html"|href="app.html"|g' _site/*.html
+          cp -r images assets dist help.html faqs.html index.html _site/
+          sed -i 's|href="index.html"|g' _site/*.html
           touch _site/.nojekyll
 
       - uses: actions/configure-pages@v5
