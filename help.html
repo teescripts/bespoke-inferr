@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Help — Bespoke Inferr</title>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('uiTheme')==='light'?'fantasy':'luxury');}catch(e){document.documentElement.setAttribute('data-theme','luxury');}</script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/theme.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>Bespoke</span> Inferr — Help</h1>
+  <div class="header-right">
+    <div class="nav-links">
+      <a href="index.html">Main UI</a>
+      <a href="faqs.html">FAQs</a>
+      <a href="help.html" class="active">Help</a>
+    </div>
+    <button id="themeToggle" class="theme-toggle" title="Switch theme">&#9788;</button>
+  </div>
+</div>
+
+<div class="container-narrow">
+  <div id="toc" class="toc" style="display:none">
+    <h3>ON THIS PAGE</h3>
+    <ol id="tocList"></ol>
+  </div>
+  <div id="content"></div>
+  <div id="errorBox" class="error-box"></div>
+</div>
+
+<script>
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+// inline: **bold** and `code` after escaping
+function inline(s) {
+  return esc(s)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+function renderBlocks(blocks) {
+  return (blocks || []).map(function (b) {
+    switch (b.type) {
+      case 'p': return '<p>' + inline(b.text) + '</p>';
+      case 'list': return '<ul>' + (b.items || []).map(function (i) { return '<li>' + inline(i) + '</li>'; }).join('') + '</ul>';
+      case 'steps': return '<ol>' + (b.items || []).map(function (i) { return '<li>' + inline(i) + '</li>'; }).join('') + '</ol>';
+      case 'code': return '<pre><code>' + esc(b.text) + '</code></pre>';
+      case 'note': return '<div class="note">' + inline(b.text) + '</div>';
+      default: return '';
+    }
+  }).join('');
+}
+
+fetch('assets/content.json')
+  .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  .then(function (data) {
+    var sections = data.help || [];
+    document.getElementById('content').innerHTML = sections.map(function (s) {
+      return '<section class="help-section" id="' + esc(s.id) + '"><h2>' + esc(s.title) + '</h2>' + renderBlocks(s.blocks) + '</section>';
+    }).join('');
+    if (sections.length) {
+      document.getElementById('tocList').innerHTML = sections.map(function (s) {
+        return '<li><a href="#' + esc(s.id) + '">' + esc(s.title) + '</a></li>';
+      }).join('');
+      document.getElementById('toc').style.display = '';
+    }
+  })
+  .catch(function (e) {
+    var box = document.getElementById('errorBox');
+    box.style.display = 'block';
+    box.innerHTML = 'Could not load the help content (' + esc(e.message) + ').<br>' +
+      'Open this page through the app rather than double-clicking the file.';
+  });
+</script>
+</body>
+</html>

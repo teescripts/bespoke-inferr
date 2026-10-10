@@ -1,0 +1,13 @@
+{
+  "name": "bespoke-inferr",
+  "version": "0.1.0",
+  "license": "MIT",
+  "scripts": {
+    "build": "tailwindcss -i assets/app.css -o assets/shared.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "daisyui": "^5.7.47",
+    "tailwindcss": "^4.3.3"
+  }
+}

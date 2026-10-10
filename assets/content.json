@@ -1,0 +1,204 @@
+{
+  "app": "Bespoke Inferr",
+  "description": "Local Ollama model manager",
+  "updated": "2026-10-09",
+  "help": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "blocks": [
+        { "type": "p", "text": "Bespoke Inferr is a local interface for managing **Ollama** models. Everything runs on your machine: you browse installed models, start and stop them, discover new ones on HuggingFace, and download them — all from one window." },
+        { "type": "p", "text": "There are no accounts and no cloud services. The app only talks to your own Ollama installation and, when you search or download, to huggingface.co." },
+        { "type": "list", "items": [
+          "**Local Models** — what's installed: start, stop, inspect, remove",
+          "**Running** — what's loaded right now and how much memory it uses",
+          "**HuggingFace** — search thousands of ready-to-run models",
+          "**Downloads** — progress and history of everything you've pulled",
+          "**Chat** — talk to any installed model in a streaming chat",
+          "**Log** — a local record of every chat, start and stop"
+        ]}
+      ]
+    },
+    {
+      "id": "getting-started",
+      "title": "Getting started",
+      "blocks": [
+        { "type": "steps", "items": [
+          "Launch the app — it checks for Ollama and offers to install it if it's missing",
+          "The interface opens in your browser",
+          "Check the status light in the header: green means connected, red means Ollama isn't reachable",
+          "Pick a tab and go"
+        ]},
+        { "type": "p", "text": "The app handles the background work for you — making sure Ollama is installed and running before the interface appears. You never need to start anything by hand." },
+        { "type": "note", "text": "The very first launch can take a little longer if Ollama still needs to be installed." }
+      ]
+    },
+    {
+      "id": "tabs",
+      "title": "The tabs",
+      "blocks": [
+        { "type": "p", "text": "**Local Models** lists everything installed. Each card shows size, quantisation and a suitability estimate for your hardware. From here you can **Start** a model (load it into memory so it can answer), **Stop** it, view **Info**, **Remove** it, or **Copy** its name to use in a terminal." },
+        { "type": "p", "text": "**Running** shows what's currently loaded, with live memory use. Stop a model here to free up RAM — its files stay on disk, so starting it again later is instant." },
+        { "type": "p", "text": "**HuggingFace** searches huggingface.co as you type. Results are filtered to GGUF files that work with Ollama, with a size and suitability estimate based on your detected hardware." },
+        { "type": "p", "text": "**Downloads** shows active transfers with progress, plus a history of everything finished or failed." },
+        { "type": "p", "text": "**Chat** lets you talk to any installed model. Pick a model, type your message, and the reply streams in as it's generated — the same chat loop you'd get from the terminal, without the terminal." },
+        { "type": "p", "text": "**Log** keeps a local record of what you've been doing: every chat turn (with token counts and timing) and every model start and stop. It lives in your browser's storage only — nothing leaves your machine." }
+      ]
+    },
+    {
+      "id": "chat-and-log",
+      "title": "Chatting with a model",
+      "blocks": [
+        { "type": "steps", "items": [
+          "Open the **Chat** tab",
+          "Pick a model from the dropdown — anything installed under Local Models can be chosen; the first reply also loads it into memory",
+          "Type your message and press Enter",
+          "Watch the reply stream in token by token",
+          "Keep chatting — the model sees the earlier messages in the session"
+        ]},
+        { "type": "p", "text": "**New chat** clears the conversation so the model starts fresh. Every completed reply is also written to the **Log** tab, with the model used, token counts in and out, and how long it took." },
+        { "type": "note", "text": "The first reply after picking a cold model takes a moment while it loads into memory — exactly like pressing Start on the Local Models tab." }
+      ]
+    },
+    {
+      "id": "downloading",
+      "title": "Searching and downloading models",
+      "blocks": [
+        { "type": "steps", "items": [
+          "Open the **HuggingFace** tab",
+          "Type a name — e.g. `sqlcoder`, `llama`, `codellama` (searching starts automatically after a short pause)",
+          "Click **⬇ Pull to Ollama** on the size and quantisation you want",
+          "Watch progress in the **Downloads** tab",
+          "When it's done, the model appears under **Local Models** — just press Start"
+        ]},
+        { "type": "p", "text": "Use **Load more** at the bottom of the results to see further matches. **View on HF** opens the model's page on huggingface.co, where you can read its description and requirements." },
+        { "type": "note", "text": "Bigger quantisations (Q8, Q6) are more faithful to the original model; smaller ones (Q4) use less disk and memory and run faster. When in doubt, start small." }
+      ]
+    },
+    {
+      "id": "downloads-mgmt",
+      "title": "Managing downloads",
+      "blocks": [
+        { "type": "list", "items": [
+          "**Cancel** — stop an active download",
+          "**Retry** — restart a failed download",
+          "**Remove** — hide an entry from the history",
+          "**Clear** — clear finished entries from the active list",
+          "**Clear stale** — remove entries that haven't progressed for a while",
+          "**Clear All** — empty the history"
+        ]},
+        { "type": "p", "text": "Your download history survives restarts, so you can always see what you've pulled and pick up where you left off." }
+      ]
+    },
+    {
+      "id": "connection",
+      "title": "Connection and host",
+      "blocks": [
+        { "type": "p", "text": "The **Host** field at the top chooses which Ollama server the interface talks to. The default points at this computer; click **Connect** after changing it." },
+        { "type": "p", "text": "The status light in the header always reflects the live connection — if it turns red, the app will tell you it can't reach Ollama, and the Local Models tab shows a **Cannot connect** message instead of your models." },
+        { "type": "p", "text": "Using a server on another machine works too: enter its address in the Host field. That machine just needs to be set up to accept connections from other computers." }
+      ]
+    },
+    {
+      "id": "appearance",
+      "title": "Theme and appearance",
+      "blocks": [
+        { "type": "p", "text": "The ☼/☾ button in the header switches between dark and light mode. Your choice is remembered and shared across every page of the app — main interface, Help and FAQs." },
+        { "type": "p", "text": "The badges in the header show your detected hardware (CPU, RAM, GPU, VRAM). They're what the suitability estimates on model cards are based on." }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting",
+      "blocks": [
+        { "type": "p", "text": "**\"Cannot connect\" / red status light** — the interface can't reach Ollama. Launching the app again usually fixes it, since it starts Ollama for you. If it persists, make sure nothing else is using Ollama in a broken state and try again." },
+        { "type": "p", "text": "**The app offered to install Ollama** — it couldn't find an existing installation. Accept the prompt for the easiest path, or install Ollama yourself from https://ollama.com/download and relaunch the app." },
+        { "type": "p", "text": "**A download looks stuck** — open the Downloads tab and use **Retry** on a failed transfer or **Cancel** on a stuck one, then **Clear stale** to tidy the list. Pulling the same model again simply starts over." },
+        { "type": "p", "text": "**A model won't start or quits immediately** — it probably doesn't fit in memory. Check the suitability badge on its card, stop other running models to free RAM, or pull a smaller quantisation." },
+        { "type": "p", "text": "**The interface doesn't open** — another app may already be using the port this one needs. Close the other instance if you have one running, or wait a moment and relaunch." }
+      ]
+    }
+  ],
+  "faq": [
+    {
+      "category": "Basics",
+      "question": "What is Bespoke Inferr?",
+      "answer": "A local interface for managing Ollama models on your computer. It shows what you have installed, lets you start and stop models, search HuggingFace for new ones, download them, and chat with them — all in one place, without touching a command line."
+    },
+    {
+      "category": "Basics",
+      "question": "Can I chat with my models?",
+      "answer": "Yes — the Chat tab talks to any installed model. Pick one from the dropdown, type your message, and the reply streams in as it generates. The conversation stays in the session until you press New chat."
+    },
+    {
+      "category": "Basics",
+      "question": "What does the Log tab record?",
+      "answer": "Every chat turn (with the model used, token counts in and out, and how long generation took) plus every model start and stop. It's stored in your browser's local storage on your machine only — there's no cloud, no analytics, and you can clear it any time."
+    },
+    {
+      "category": "Basics",
+      "question": "How do I start it?",
+      "answer": "Just launch the app. It checks that Ollama is installed and running, starts it if needed, then opens the interface in your browser — there's nothing to set up by hand."
+    },
+    {
+      "category": "Basics",
+      "question": "What's the difference between Start and Stop?",
+      "answer": "**Start** loads a model into memory so it can answer requests — the first response takes a moment while it warms up. **Stop** unloads it to free RAM; the model's files stay on disk, so starting it again later is quick."
+    },
+    {
+      "category": "Basics",
+      "question": "Can I use a server on another machine?",
+      "answer": "Yes. Enter the other computer's address in the Host field at the top and click Connect. That machine just needs its Ollama set up to accept connections from other computers."
+    },
+    {
+      "category": "Basics",
+      "question": "Does it work offline?",
+      "answer": "Yes — once models are downloaded, everything runs on your machine. Internet is only needed to search HuggingFace and to download new models."
+    },
+    {
+      "category": "Downloading",
+      "question": "What does \"Pull to Ollama\" actually do?",
+      "answer": "It downloads the model file you picked and registers it with Ollama. After that it shows up under Local Models exactly like a model installed any other way, and you can start it with one click."
+    },
+    {
+      "category": "Downloading",
+      "question": "Which size should I download?",
+      "answer": "The suitability badge on each result tells you how well the model fits your hardware — green is comfortable, orange is tight, red likely to struggle. As a rule: smaller quantisations (Q4) need less memory and run faster; larger ones (Q6, Q8) are more accurate but heavier."
+    },
+    {
+      "category": "Downloading",
+      "question": "A download looks stuck — what do I do?",
+      "answer": "Open the Downloads tab. Use **Retry** on a failed transfer, **Cancel** on a stuck one, then **Clear stale** to tidy the list. Downloading the same model again simply starts over."
+    },
+    {
+      "category": "Troubleshooting",
+      "question": "The status light is red / it says \"Cannot connect\" — what's wrong?",
+      "answer": "The interface can't reach Ollama. Relaunching the app usually fixes it, since it starts Ollama for you. If it keeps happening, check that the Host field points at the right address and click Connect again."
+    },
+    {
+      "category": "Troubleshooting",
+      "question": "The app is asking to install Ollama — should I let it?",
+      "answer": "Yes, that's the easy path: it installs the official Ollama for your system and continues automatically. If you'd rather do it yourself, install from ollama.com/download and relaunch the app."
+    },
+    {
+      "category": "Troubleshooting",
+      "question": "A model starts but dies right away — why?",
+      "answer": "Almost always memory: the model is bigger than what's free. Stop other running models first (the Running tab shows what's using RAM), check the model's suitability badge, or pull a smaller quantisation of the same model."
+    },
+    {
+      "category": "Troubleshooting",
+      "question": "How do I remove a model I no longer need?",
+      "answer": "On the Local Models tab, stop it if it's running, then click **Remove** on its card. The files are deleted from disk, freeing that space immediately."
+    },
+    {
+      "category": "Privacy & data",
+      "question": "Does this app phone home or collect data?",
+      "answer": "No. It's a local app with no analytics and no accounts. Network traffic goes only to the Ollama server you configured and, when you search or download, to huggingface.co."
+    },
+    {
+      "category": "Privacy & data",
+      "question": "Where are my models and preferences kept?",
+      "answer": "Models live wherever Ollama keeps them on your computer (Ollama's own model folder). Your theme choice is remembered by your browser, and download history is kept by the app so it survives restarts."
+    }
+  ]
+}

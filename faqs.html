@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAQs — Bespoke Inferr</title>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('uiTheme')==='light'?'fantasy':'luxury');}catch(e){document.documentElement.setAttribute('data-theme','luxury');}</script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/theme.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>Bespoke</span> Inferr — FAQs</h1>
+  <div class="header-right">
+    <div class="nav-links">
+      <a href="index.html">Main UI</a>
+      <a href="faqs.html" class="active">FAQs</a>
+      <a href="help.html">Help</a>
+    </div>
+    <button id="themeToggle" class="theme-toggle" title="Switch theme">&#9788;</button>
+  </div>
+</div>
+
+<div class="container-narrow">
+  <div class="searchbar">
+    <input type="text" id="searchInput" placeholder="Search FAQs..." autocomplete="off" />
+  </div>
+  <div id="faqList"></div>
+  <div id="noResults" class="no-results">No matching questions — try different words, or see the <a href="help.html">Help page</a>.</div>
+  <div id="errorBox" class="error-box"></div>
+</div>
+
+<script>
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function inline(s) {
+  return esc(s)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+fetch('assets/content.json')
+  .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  .then(function (data) {
+    var items = data.faq || [];
+    // group by category, preserving first-seen order
+    var order = [], groups = {};
+    items.forEach(function (f) {
+      var c = f.category || 'General';
+      if (!groups[c]) { groups[c] = []; order.push(c); }
+      groups[c].push(f);
+    });
+    document.getElementById('faqList').innerHTML = order.map(function (c) {
+      return '<div class="category"><h2>' + esc(c.toUpperCase()) + '</h2>' +
+        groups[c].map(function (f) {
+          return '<div class="faq-item">' +
+            '<button class="faq-q">' + inline(f.question) + '</button>' +
+            '<div class="faq-a">' + inline(f.answer) + '</div>' +
+          '</div>';
+        }).join('') + '</div>';
+    }).join('');
+
+    document.querySelectorAll('.faq-q').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        btn.parentElement.classList.toggle('open');
+      });
+    });
+
+    // live search: filter items, hide empty categories
+    document.getElementById('searchInput').addEventListener('input', function () {
+      var q = this.value.trim().toLowerCase();
+      var anyVisible = false;
+      document.querySelectorAll('.category').forEach(function (cat) {
+        var catVisible = false;
+        cat.querySelectorAll('.faq-item').forEach(function (item) {
+          var text = item.textContent.toLowerCase();
+          var show = !q || text.indexOf(q) !== -1;
+          item.style.display = show ? '' : 'none';
+          if (show) { catVisible = true; anyVisible = true; }
+        });
+        cat.style.display = catVisible ? '' : 'none';
+      });
+      document.getElementById('noResults').style.display = (q && !anyVisible) ? 'block' : 'none';
+    });
+  })
+  .catch(function (e) {
+    var box = document.getElementById('errorBox');
+    box.style.display = 'block';
+    box.innerHTML = 'Could not load the questions (' + esc(e.message) + ').<br>' +
+      'Open this page through the app rather than double-clicking the file.';
+  });
+</script>
+</body>
+</html>

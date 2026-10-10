@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bespoke Inferr — Local AI Model Manager</title>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('uiTheme')==='light'?'fantasy':'luxury');}catch(e){document.documentElement.setAttribute('data-theme','luxury');}</script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/theme.js"></script>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <h1><span>Bespoke</span> Inferr</h1>
+    <div class="hw-specs">
+      <div class="hw-badge"><span class="hw-icon">CPU</span> <span class="hw-val" id="hwCpu">Intel i9-9980HK</span></div>
+      <div class="hw-badge"><span class="hw-icon">RAM</span> <span class="hw-val" id="hwRam">32 GB</span></div>
+      <div class="hw-badge"><span class="hw-icon">GPU</span> <span class="hw-val" id="hwGpu">AMD Radeon Pro 5300M</span></div>
+      <div class="hw-badge"><span class="hw-icon">VRAM</span> <span class="hw-val" id="hwVram">4 GB</span></div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="nav-links">
+      <a href="index.html" class="active">Main UI</a>
+      <a href="faqs.html">FAQs</a>
+      <a href="help.html">Help</a>
+    </div>
+    <button id="themeToggle" class="theme-toggle" title="Switch theme">&#9788;</button>
+    <div class="status">
+      <span id="statusText">Connecting...</span>
+      <div class="dot offline" id="statusDot"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="settings">
+    <label>Host:</label>
+    <input type="text" id="hostInput" value="http://localhost:11434" />
+    <button class="btn btn-secondary" onclick="connect()">Connect</button>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="ollama" onclick="switchTab('ollama')">Local Models</div>
+    <div class="tab" data-tab="running" onclick="switchTab('running')">Running</div>
+    <div class="tab" data-tab="hf" onclick="switchTab('hf')">HuggingFace</div>
+    <div class="tab" data-tab="downloads" onclick="switchTab('downloads')">Downloads</div>
+    <div class="tab" data-tab="chat" onclick="switchTab('chat')">Chat</div>
+    <div class="tab" data-tab="log" onclick="switchTab('log')">Log</div>
+  </div>
+
+  <div id="runningInfo" class="running-info" style="display:none">
+    <h3>RUNNING</h3>
+    <div id="runningList"></div>
+  </div>
+
+  <div id="downloadsPanel" class="downloads-panel" style="display:none">
+    <h3>
+      <span>ACTIVE DOWNLOADS</span>
+      <button class="btn btn-secondary" onclick="clearCompleted()" style="padding:3px 10px;font-size:0.7rem">Clear</button>
+    </h3>
+    <div id="downloadsList"></div>
+  </div>
+
+  <div id="downloadsView" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
+      <h2 style="font-size:1.1rem;color:var(--text-strong)">Download History</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" onclick="clearStaleDownloads()" style="font-size:0.8rem">Clear stale</button>
+        <button class="btn btn-secondary" onclick="clearAllDownloads()" style="font-size:0.8rem">Clear All</button>
+      </div>
+    </div>
+    <div id="downloadsHistory"></div>
+  </div>
+
+  <div id="hfSearch" style="display:none">
+    <div class="search-bar">
+      <input type="text" id="hfSearchInput" placeholder="Search models (e.g. sqlcoder, llama, codellama...)" onkeypress="if(event.key==='Enter')searchHF()" />
+      <button class="btn btn-download" onclick="searchHF()">Search</button>
+    </div>
+    <div class="filters">
+      <label>Format:</label>
+      <select id="hfFilter" onchange="searchHF()">
+        <option value="gguf">GGUF only</option>
+        <option value="all">All</option>
+      </select>
+      <label>Quantization:</label>
+      <select id="hfQuant" onchange="renderHFResults()">
+        <option value="all">All</option>
+        <option value="Q2_K">Q2_K</option>
+        <option value="Q3_K_M">Q3_K_M</option>
+        <option value="Q4_K_M" selected>Q4_K_M</option>
+        <option value="Q5_K_M">Q5_K_M</option>
+        <option value="Q6_K">Q6_K</option>
+        <option value="Q8_0">Q8_0</option>
+      </select>
+      <label>Sort by:</label>
+      <select id="hfSortClient" onchange="renderHFResults()">
+        <option value="downloads">Downloads</option>
+        <option value="likes">Likes</option>
+        <option value="name">Name</option>
+        <option value="date">Date</option>
+        <option value="size">Size (Q4)</option>
+        <option value="source">Source</option>
+      </select>
+      <span id="hfResultCount" style="color:var(--text-faint);font-size:0.8rem"></span>
+    </div>
+    <div id="hfResults" class="models-grid"></div>
+    <div id="hfLoading" class="loading" style="display:none">Searching...</div>
+    <div id="hfEmpty" class="empty-state" style="display:none">
+      <h2>Search HuggingFace</h2>
+      <p>Find GGUF models ready to run with Ollama</p>
+    </div>
+  </div>
+
+  <div id="chatView" class="chat-view" style="display:none">
+    <div class="chat-toolbar">
+      <label for="chatModel">Model:</label>
+      <select id="chatModel" class="chat-model-select"></select>
+      <button class="btn btn-secondary" onclick="clearChat()" style="font-size:0.8rem">New chat</button>
+      <span id="chatHint" class="chat-hint"></span>
+    </div>
+    <div id="chatMessages" class="chat-messages"></div>
+    <form id="chatForm" class="chat-input" onsubmit="return sendChat(event)">
+      <input type="text" id="chatInput" placeholder="Ask your model something..." autocomplete="off" />
+      <button class="btn btn-download" id="chatSend" type="submit">Send</button>
+    </form>
+  </div>
+
+  <div id="logView" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
+      <h2 style="font-size:1.1rem;color:var(--text-strong)">Inference Log</h2>
+      <button class="btn btn-secondary" onclick="clearUsageLog()" style="font-size:0.8rem">Clear log</button>
+    </div>
+    <div id="logStats" class="log-stats"></div>
+    <div id="logList"></div>
+  </div>
+
+  <div id="modelFilterBar" class="model-filter">
+    <input type="text" id="modelFilterInput" placeholder="Filter models by name, family, quant..." autocomplete="off" oninput="onModelFilter(this.value)" />
+  </div>
+  <div id="ollamaModels" class="models-grid"></div>
+  <div id="emptyState" class="empty-state" style="display:none">
+    <h2>No models</h2>
+    <p>Pull a model: <code>ollama pull model_name</code></p>
+  </div>
+  <div id="loading" class="loading">Loading...</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let SYSTEM_RAM_GB = 32;
+let SYSTEM_VRAM_GB = 4;
+let SYSTEM_CPU = 'Unknown CPU';
+let SYSTEM_GPU = 'Unknown GPU';
+let SYSTEM_CORES = 8;
+let modelFilter = '';
+const emptyHintHTML = document.getElementById('emptyState').querySelector('p').innerHTML;
+
+function detectHardware() {
+  SYSTEM_CORES = navigator.hardwareConcurrency || 8;
+  SYSTEM_RAM_GB = navigator.deviceMemory || 32;
+  
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (gl) {
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      if (ext) {
+        const gpuRenderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+        SYSTEM_GPU = gpuRenderer;
+        if (gpuRenderer.includes('Radeon Pro 5300M')) SYSTEM_VRAM_GB = 4;
+        else if (gpuRenderer.includes('Radeon Pro 5500M')) SYSTEM_VRAM_GB = 8;
+        else if (gpuRenderer.includes('Radeon Pro 5600M')) SYSTEM_VRAM_GB = 8;
+        else if (gpuRenderer.includes('Intel') && gpuRenderer.includes('UHD')) SYSTEM_VRAM_GB = 1.5;
+        else if (gpuRenderer.includes('Intel') && gpuRenderer.includes('Iris')) SYSTEM_VRAM_GB = 1.5;
+        else SYSTEM_VRAM_GB = 4;
+      }
+    }
+  } catch (e) {}
+  
+  const cpuInfo = navigator.userAgentData?.brands?.[0]?.brand || 
+                  navigator.userAgent.match(/\((.*?)\)/)?.[1]?.split(';')[0] || 'Unknown CPU';
+  SYSTEM_CPU = cpuInfo;
+  
+  document.getElementById('hwCpu').textContent = `${SYSTEM_CPU} (${SYSTEM_CORES} cores)`;
+  document.getElementById('hwRam').textContent = `${SYSTEM_RAM_GB} GB`;
+  document.getElementById('hwGpu').textContent = SYSTEM_GPU.length > 30 ? SYSTEM_GPU.substring(0, 27) + '...' : SYSTEM_GPU;
+  document.getElementById('hwVram').textContent = `${SYSTEM_VRAM_GB} GB`;
+}
+
+detectHardware();
+let host = 'http://localhost:11434';
+let models = [];
+let running = {};
+let currentTab = 'ollama';
+let downloads = JSON.parse(localStorage.getItem('ollamaDownloads') || '{}');
+let removedServerIds = JSON.parse(localStorage.getItem('removedServerIds') || '[]');
+let _hadServerCleanup = false;
+Object.keys(downloads).forEach(k => {
+  if (k.startsWith('server:') || k.startsWith('sha256-')) {
+    delete downloads[k];
+    _hadServerCleanup = true;
+  }
+});
+if (_hadServerCleanup) saveDownloads();
+let hfSearchTimeout;
+let lastHFResults = [];
+let hfPage = 0;
+const HF_PAGE_SIZE = 20;
+let hfTotalResults = 0;
+let hfLastQuery = localStorage.getItem('hfLastQuery') || '';
+
+document.getElementById('hostInput').value = host;
+
+function estimateModelSize(modelName, quant) {
+  const name = modelName.toLowerCase();
+  let params = 0;
+  if (name.includes('34b') || name.includes('34b')) params = 34;
+  else if (name.includes('32b')) params = 32;
+  else if (name.includes('30b')) params = 30;
+  else if (name.includes('14b')) params = 14;
+  else if (name.includes('13b')) params = 13;
+  else if (name.includes('8b') || name.includes('8b')) params = 8;
+  else if (name.includes('7b') || name.includes('7b')) params = 7;
+  else if (name.includes('3b')) params = 3;
+  else if (name.includes('1b')) params = 1;
+  else if (name.includes('70b')) params = 70;
+  
+  if (params === 0) return 0;
+  
+  const bytesPerParam = {
+    'Q2_K': 2.5/8, 'Q3_K_S': 3/8, 'Q3_K_M': 3.3/8, 'Q3_K_L': 3.5/8,
+    'Q4_K_S': 4/8, 'Q4_K_M': 4.5/8, 'Q4_K_L': 4.7/8,
+    'Q5_K_S': 5/8, 'Q5_K_M': 5.5/8, 'Q5_K_L': 5.7/8,
+    'Q6_K': 6.5/8, 'Q8_0': 8/8, 'IQ4_XS': 4.2/8
+  };
+  
+  const bpb = bytesPerParam[quant] || 4.5/8;
+  return params * 1e9 * bpb;
+}
+
+function getSuitability(sizeBytes) {
+  const sizeGB = sizeBytes / (1024*1024*1024);
+  const ramRatio = sizeGB / SYSTEM_RAM_GB;
+  const fitsVram = sizeGB <= SYSTEM_VRAM_GB;
+  if (fitsVram) return { cls: 'good', text: 'Fits in VRAM' };
+  if (ramRatio < 0.3) return { cls: 'good', text: 'Excellent fit' };
+  if (ramRatio < 0.5) return { cls: 'ok', text: 'Good fit' };
+  if (ramRatio < 0.7) return { cls: 'tight', text: 'Works well' };
+  if (ramRatio < 0.85) return { cls: 'bad', text: 'Tight, close apps' };
+  return { cls: 'bad', text: `Needs ${Math.ceil(sizeGB)}GB RAM` };
+}
+
+function connect() {
+  host = document.getElementById('hostInput').value.replace(/\/$/, '');
+  fetchModels();
+}
+
+async function fetchModels() {
+  try {
+    const [tagsRes, psRes] = await Promise.all([
+      fetch(`${host}/api/tags`),
+      fetch(`${host}/api/ps`)
+    ]);
+    if (!tagsRes.ok) throw new Error('API error');
+    const tagsData = await tagsRes.json();
+    const psData = await psRes.json();
+    models = tagsData.models || [];
+    running = {};
+    (psData.models || []).forEach(m => { running[m.name] = m; });
+    updateStatus(true);
+    render();
+  } catch (e) {
+    updateStatus(false);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'block';
+    document.getElementById('emptyState').querySelector('h2').textContent = 'Cannot connect';
+    document.getElementById('emptyState').querySelector('p').textContent = `Ollama not reachable at ${host}`;
+  }
+}
+
+function updateStatus(online) {
+  document.getElementById('statusDot').className = 'dot ' + (online ? 'online' : 'offline');
+  document.getElementById('statusText').textContent = online ? 'Connected' : 'Disconnected';
+}
+
+function formatSize(bytes) {
+  if (!bytes) return 'N/A';
+  const gb = bytes / (1024**3);
+  return gb >= 1 ? gb.toFixed(1) + ' GB' : (bytes / (1024**2)).toFixed(0) + ' MB';
+}
+
+function formatNum(n) {
+  if (!n) return '0';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return n.toString();
+}
+
+function timeAgo(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return minutes + 'm ago';
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours + 'h ago';
+  const days = Math.floor(hours / 24);
+  if (days < 30) return days + 'd ago';
+  const months = Math.floor(days / 30);
+  if (months < 12) return months + 'mo ago';
+  return Math.floor(months / 12) + 'y ago';
+}
+
+function isRunning(n) { return Object.keys(running).some(k => k === n || k.startsWith(n + ':')); }
+function getRunningInfo(n) { return running[n] || Object.values(running).find(m => m.name === n); }
+
+function copyModel(name, btn) {
+  navigator.clipboard.writeText(name);
+  btn.textContent = 'Copied!';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+}
+
+function render() {
+  document.getElementById('loading').style.display = 'none';
+  const runningModels = models.filter(m => isRunning(m.name));
+  const ri = document.getElementById('runningInfo');
+  const rl = document.getElementById('runningList');
+
+  if (runningModels.length > 0) {
+    ri.style.display = 'block';
+    rl.innerHTML = runningModels.map(m => {
+      const info = getRunningInfo(m.name);
+      return `<div class="model">
+        <span style="flex:1;min-width:0;word-break:break-all;font-size:0.9rem">${m.name}</span>
+        <span style="white-space:nowrap;font-size:0.85rem;color:var(--green-text)">${info ? formatSize(info.size) : ''}</span>
+        <button class="btn btn-stop" onclick="stopModel('${m.name}')">Stop</button>
+      </div>`;
+    }).join('');
+  } else ri.style.display = 'none';
+
+  renderDownloads();
+  renderOllamaModels();
+}
+
+function onModelFilter(v) {
+  modelFilter = v;
+  renderOllamaModels();
+}
+
+function renderOllamaModels() {
+  let display = currentTab === 'running' ? models.filter(m => isRunning(m.name)) : models;
+  const c = document.getElementById('ollamaModels');
+  const e = document.getElementById('emptyState');
+  const p = e.querySelector('p');
+  const q = modelFilter.trim().toLowerCase();
+  if (q) display = display.filter(m => [m.name, m.details?.format, m.details?.family, m.details?.parameter_size, m.details?.quantization_level].filter(Boolean).join(' ').toLowerCase().includes(q));
+
+  if (display.length === 0) {
+    c.innerHTML = '';
+    e.style.display = 'block';
+    if (q) {
+      e.querySelector('h2').textContent = 'No matching models';
+      p.textContent = 'Nothing matches "' + modelFilter.trim() + '". Clear the filter to see every model.';
+    } else {
+      e.querySelector('h2').textContent = currentTab === 'running' ? 'Nothing running' : 'No models';
+      p.innerHTML = emptyHintHTML;
+    }
+  } else {
+    e.style.display = 'none';
+    c.innerHTML = display.map(m => {
+      const run = isRunning(m.name);
+      const suit = getSuitability(m.size);
+      const mod = m.modified_at ? new Date(m.modified_at).toLocaleDateString() : '';
+      return `<div class="model-card ${run ? 'running' : ''}">
+        <div class="model-name">
+          <div class="status-dot ${run ? 'running' : 'stopped'}"></div>
+          <div class="name-text">${m.name}</div>
+          <span class="date-badge">${mod}</span>
+          <button class="copy-btn" onclick="copyModel('${m.name}',this)">Copy</button>
+        </div>
+        <div class="suitability ${suit.cls}">${suit.text} (${formatSize(m.size)})</div>
+        <div class="model-meta">
+          <span class="label">Format</span><span class="value">${m.details?.format || 'N/A'}</span>
+          <span class="label">Family</span><span class="value">${m.details?.family || 'N/A'}</span>
+          <span class="label">Params</span><span class="value">${m.details?.parameter_size || 'N/A'}</span>
+          <span class="label">Quant</span><span class="value">${m.details?.quantization_level || 'N/A'}</span>
+          <span class="label">Context</span><span class="value">${m.details?.context_length?.toLocaleString() || 'N/A'}</span>
+        </div>
+        <div class="model-actions">
+          ${run
+            ? `<button class="btn btn-stop" onclick="stopModel('${m.name}')">Stop</button>`
+            : `<button class="btn btn-start" onclick="startModel('${m.name}')">Start</button>`}
+          <button class="btn btn-secondary" onclick="showInfo('${m.name}')">Info</button>
+          <button class="btn btn-danger" onclick="removeModel('${m.name}')">Remove</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function renderDownloads() {
+  const panel = document.getElementById('downloadsPanel');
+  const list = document.getElementById('downloadsList');
+  const active = Object.values(downloads).filter(d => d.status === 'active');
+  if (active.length === 0) { panel.style.display = 'none'; } else {
+    panel.style.display = 'block';
+    list.innerHTML = active.map(d => {
+      return `<div class="download-item">
+        <div class="name">${d.name}</div>
+        <div class="download-progress">
+          <div class="status active">${d.percent || 0}% - ${d.speed || 'Starting...'}</div>
+          <div class="bar"><div class="fill" style="width:${d.percent||0}%"></div></div>
+          ${d.downloaded ? `<div style="font-size:0.7rem;color:var(--text-faint);margin-top:4px">${d.downloaded}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  renderDownloadsHistory();
+}
+
+function renderDownloadsHistory() {
+  const container = document.getElementById('downloadsHistory');
+  if (!container) return;
+  const all = Object.entries(downloads);
+  if (all.length === 0) {
+    container.innerHTML = `<div class="empty-state" style="padding:40px"><h2>No downloads yet</h2><p>Search HuggingFace and pull models to see them here</p></div>`;
+    return;
+  }
+  container.innerHTML = `<div class="models-grid">${all.map(([key, d]) => {
+    const cls = d.status === 'active' ? 'active' : d.status === 'done' ? 'done' : 'error';
+    const statusText = d.status === 'active' ? `${d.percent || 0}% - ${d.speed || ''}` : d.status === 'done' ? 'Complete' : `Failed: ${d.error}`;
+    const stColor = d.status === 'active' ? 'var(--color-info)' : d.status === 'done' ? 'var(--color-success)' : 'var(--color-error)';
+    const searchTerm = d.name.toLowerCase().replace(/\.(gguf|bin|safetensors)$/, '');
+    const isInstalled = models.some(m => {
+      const mName = m.name.toLowerCase();
+      return mName.includes(searchTerm) || mName.includes(d.name) || (d.repo && mName.includes(d.repo.split('/').pop().toLowerCase()));
+    });
+    return `<div class="model-card" style="border-color:color-mix(in oklab, ${stColor} 30%, transparent)">
+      <div class="model-name">
+        <div class="status-dot" style="background:${stColor}"></div>
+        <div class="name-text">${d.name}</div>
+        <span class="date-badge">${d.repo || ''}</span>
+      </div>
+      <div class="download-progress" style="margin:10px 0">
+        <div class="status ${cls}">${statusText}</div>
+        ${d.status === 'active' ? `<div class="bar"><div class="fill" style="width:${d.percent||0}%"></div></div>` : ''}
+      </div>
+      <div class="model-actions">
+        ${d.status === 'done' && !isInstalled ? `<button class="btn btn-start" onclick="startModel('${d.repo && d.repo !== 'ollama' ? 'hf.co/' + d.repo : d.name}')">Start</button>` : ''}
+        ${d.status === 'error' ? `<button class="btn btn-download" onclick="retryDownload('${d.repo}','${d.filename}')">Retry</button>` : ''}
+        ${d.status === 'active' ? `<button class="btn btn-stop" onclick="cancelDownload('${key}')">Cancel</button>` : ''}
+        <button class="btn btn-secondary" onclick="removeDownload('${key}')">Remove</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function retryDownload(repo, filename) {
+  const id = `${repo}/${filename}`;
+  delete downloads[id];
+  downloadModel(repo, filename, 0);
+}
+
+function cancelDownload(id) {
+  if (downloads[id]) { downloads[id].status = 'cancelled'; saveDownloads(); renderDownloads(); }
+}
+
+function removeDownload(id) {
+  if (id.startsWith('server:') && downloads[id] && downloads[id].filename) {
+    const name = downloads[id].name || id;
+    const size = downloads[id].downloaded || 'unknown size';
+    if (!confirm(`Delete ${name} (${size})?\n\nThis will remove the partial download files from disk.`)) return;
+    removedServerIds.push(id);
+    localStorage.setItem('removedServerIds', JSON.stringify(removedServerIds));
+    fetch(`/api/delete-partial/${encodeURIComponent(downloads[id].filename)}`, { method: 'DELETE' })
+      .then(r => r.json())
+      .then(d => { if (d.deleted) showToast(`Deleted ${d.deleted.length} file(s)`, 'success'); })
+      .catch(() => {});
+  }
+  delete downloads[id];
+  saveDownloads();
+  renderDownloads();
+}
+
+function saveDownloads() {
+  const toSave = {};
+  Object.entries(downloads).forEach(([k, v]) => {
+    toSave[k] = { ...v, _lastBytes: undefined, _lastTime: undefined };
+  });
+  localStorage.setItem('ollamaDownloads', JSON.stringify(toSave));
+}
+
+function clearAllDownloads() {
+  downloads = {};
+  saveDownloads();
+  renderDownloads();
+}
+
+function clearStaleDownloads() {
+  Object.keys(downloads).forEach(k => {
+    if (k.startsWith('server:')) {
+      removedServerIds.push(k);
+      delete downloads[k];
+    }
+    if (k.startsWith('sha256-')) delete downloads[k];
+  });
+  localStorage.setItem('removedServerIds', JSON.stringify(removedServerIds));
+  saveDownloads();
+  renderDownloads();
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById('ollamaModels').style.display = (tab === 'ollama' || tab === 'running') ? 'grid' : 'none';
+  document.getElementById('emptyState').style.display = (tab === 'ollama' || tab === 'running') ? '' : 'none';
+  document.getElementById('modelFilterBar').style.display = (tab === 'ollama' || tab === 'running') ? 'block' : 'none';
+  document.getElementById('hfSearch').style.display = tab === 'hf' ? 'block' : 'none';
+  document.getElementById('downloadsView').style.display = tab === 'downloads' ? 'block' : 'none';
+  document.getElementById('chatView').style.display = tab === 'chat' ? 'flex' : 'none';
+  document.getElementById('logView').style.display = tab === 'log' ? 'block' : 'none';
+  if (tab === 'ollama' || tab === 'running') render();
+  if (tab === 'downloads') renderDownloadsHistory();
+  if (tab === 'chat') refreshChatModels();
+  if (tab === 'log') renderUsageLog();
+  if (tab === 'hf') {
+    if (lastHFResults.length === 0) {
+      if (hfLastQuery) {
+        document.getElementById('hfSearchInput').value = hfLastQuery;
+        searchHF();
+      } else {
+        document.getElementById('hfSearchInput').value = 'gguf';
+        searchHF();
+      }
+    }
+  }
+}
+
+async function startModel(name) {
+  showToast(`Starting ${name}...`, 'info');
+  try {
+    const res = await fetch(`${host}/api/generate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: name, prompt: '', keep_alive: -1 })
+    });
+    if (res.ok) { showToast(`${name} started`, 'success'); logUsage({ type: 'start', model: name }); setTimeout(fetchModels, 1500); }
+    else showToast('Failed', 'error');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function stopModel(name) {
+  showToast(`Stopping ${name}...`, 'info');
+  try {
+    await fetch(`${host}/api/generate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: name, keep_alive: 0 })
+    });
+    showToast(`${name} stopped`, 'success');
+    logUsage({ type: 'stop', model: name });
+    setTimeout(fetchModels, 1500);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function removeModel(name) {
+  if (!confirm(`Remove ${name}?`)) return;
+  try {
+    await fetch(`${host}/api/delete`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    showToast(`${name} removed`, 'success');
+    fetchModels();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function showInfo(name) {
+  try {
+    const res = await fetch(`${host}/api/show`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    const data = await res.json();
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px';
+    modal.innerHTML = `<div class="info-modal">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2>${name}</h2>
+        <button class="btn btn-secondary" onclick="this.closest('[style*=fixed]').remove()">Close</button>
+      </div>
+      <pre>${JSON.stringify(data, null, 2)}</pre>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function searchHF(append = false) {
+  const q = document.getElementById('hfSearchInput').value.trim();
+  if (!q) return;
+  const filter = document.getElementById('hfFilter').value;
+  
+  if (!append) {
+    hfLastQuery = q;
+    localStorage.setItem('hfLastQuery', q);
+  }
+
+  if (!append) {
+    document.getElementById('hfLoading').style.display = 'block';
+    document.getElementById('hfResults').innerHTML = '';
+    document.getElementById('hfEmpty').style.display = 'none';
+    document.getElementById('hfResultCount').textContent = '';
+    hfPage = 0;
+    lastHFResults = [];
+  }
+
+  document.getElementById('hfLoadMore')?.remove();
+
+  try {
+    const offset = hfPage * HF_PAGE_SIZE;
+    let url = `https://huggingface.co/api/models?search=${encodeURIComponent(q)}&sort=downloads&direction=-1&limit=${HF_PAGE_SIZE}&offset=${offset}`;
+    if (filter === 'gguf') url += '&filter=gguf';
+    const res = await fetch(url);
+    const searchData = await res.json();
+    
+    hfTotalResults = searchData.length;
+    
+    const enriched = await Promise.all(searchData.map(async (model) => {
+      if (model.siblings && model.siblings.length > 0) return model;
+      try {
+        const detailRes = await fetch(`https://huggingface.co/api/models/${model.id}`);
+        return await detailRes.json();
+      } catch (e) { return model; }
+    }));
+    
+    lastHFResults = append ? [...lastHFResults, ...enriched] : enriched;
+    hfPage++;
+    
+    document.getElementById('hfLoading').style.display = 'none';
+    renderHFResults();
+    
+    if (hfTotalResults >= HF_PAGE_SIZE) {
+      const container = document.getElementById('hfResults');
+      const loadMore = document.createElement('div');
+      loadMore.id = 'hfLoadMore';
+      loadMore.style.cssText = 'grid-column:1/-1;text-align:center;padding:20px';
+      loadMore.innerHTML = `<button class="btn btn-download" onclick="searchHF(true)">Load more (${lastHFResults.length} of ${offset + hfTotalResults}+)</button>`;
+      container.appendChild(loadMore);
+    }
+  } catch (e) {
+    document.getElementById('hfLoading').style.display = 'none';
+    showToast(`Search failed: ${e.message}`, 'error');
+  }
+}
+
+function renderHFResults() {
+  let data = [...lastHFResults];
+  const quantFilter = document.getElementById('hfQuant').value;
+  const sortBy = document.getElementById('hfSortClient').value;
+  const container = document.getElementById('hfResults');
+  const empty = document.getElementById('hfEmpty');
+
+  if (!data.length) { container.innerHTML = ''; empty.style.display = 'block'; empty.querySelector('h2').textContent = 'No results'; return; }
+  empty.style.display = 'none';
+
+  data.sort((a, b) => {
+    if (sortBy === 'name') return a.id.localeCompare(b.id);
+    if (sortBy === 'downloads') return (b.downloads || 0) - (a.downloads || 0);
+    if (sortBy === 'likes') return (b.likes || 0) - (a.likes || 0);
+    if (sortBy === 'date') return new Date(b.lastModified || 0) - new Date(a.lastModified || 0);
+    if (sortBy === 'size') {
+      const aQ4 = (a.siblings || []).find(f => f.rfilename.includes('Q4_K_M'));
+      const bQ4 = (b.siblings || []).find(f => f.rfilename.includes('Q4_K_M'));
+      const aSize = aQ4?.size || estimateModelSize(a.id, 'Q4_K_M');
+      const bSize = bQ4?.size || estimateModelSize(b.id, 'Q4_K_M');
+      return bSize - aSize;
+    }
+    if (sortBy === 'source') {
+      const aOllama = models.some(m => m.name.includes(a.id)) ? 0 : 1;
+      const bOllama = models.some(m => m.name.includes(b.id)) ? 0 : 1;
+      return aOllama - bOllama;
+    }
+    return 0;
+  });
+
+  document.getElementById('hfResultCount').textContent = `${data.length} results`;
+
+  container.innerHTML = data.map(model => {
+    const ggufFiles = (model.siblings || []).filter(f => f.rfilename.endsWith('.gguf'));
+    const filtered = quantFilter === 'all' ? ggufFiles : ggufFiles.filter(f => f.rfilename.includes(quantFilter));
+    const isInstalled = models.some(m => m.name.includes(model.id));
+    const hasGGUF = ggufFiles.length > 0;
+    const best = filtered.find(f => f.rfilename.includes('Q4_K_M'))
+      || filtered.find(f => f.rfilename.includes('Q3_K_M'))
+      || filtered[0];
+    
+    let q4Size = 0;
+    const q4File = ggufFiles.find(f => f.rfilename.includes('Q4_K_M'));
+    if (q4File && q4File.size) {
+      q4Size = q4File.size;
+    } else {
+      const q4Name = ggufFiles.find(f => f.rfilename.includes('Q4_K_M'))?.rfilename || '';
+      const q4Quant = q4Name.match(/Q[0-9]_[A-Z]+/)?.[0] || 'Q4_K_M';
+      q4Size = estimateModelSize(model.id, q4Quant);
+    }
+    
+      const suit = q4Size > 0 ? getSuitability(q4Size) : null;
+    const mod = model.lastModified ? new Date(model.lastModified).toLocaleDateString() : 'N/A';
+    const relDate = model.lastModified ? timeAgo(new Date(model.lastModified)) : '';
+
+    return `<div class="model-card hf-card" style="${!hasGGUF ? 'opacity:0.5' : ''}">
+      <div class="model-name">
+        <div class="status-dot" style="background:${hasGGUF ? 'var(--tag-text)' : 'var(--text-faint)'}"></div>
+        <div class="name-text">${model.id}</div>
+        <button class="copy-btn" onclick="copyModel('${model.id}',this)">Copy</button>
+      </div>
+      <div class="model-meta" style="margin-bottom:10px">
+        <span class="label">Task</span><span class="value">${model.pipeline_tag || 'N/A'}</span>
+        <span class="label">Downloads</span><span class="value">${formatNum(model.downloads)}</span>
+        <span class="label">Likes</span><span class="value">${formatNum(model.likes)}</span>
+        <span class="label">Updated</span><span class="value">${mod} <span style="color:var(--text-faint);font-size:0.7rem">(${relDate})</span></span>
+        <span class="label">GGUF Files</span><span class="value">${ggufFiles.length}</span>
+        <span class="label">Size (Q4)</span><span class="value">${q4Size > 0 ? formatSize(q4Size) : 'N/A'}</span>
+      </div>
+      ${suit ? `<div class="suitability ${suit.cls}">${suit.text}</div>` : ''}
+      <div style="margin-bottom:10px">
+        ${ggufFiles.slice(0, 5).map(f => {
+          const name = f.rfilename.split('/').pop().replace(/\.gguf$/, '');
+          const short = name.length > 28 ? name.substring(0, 25) + '...' : name;
+          const dlUrl = `https://huggingface.co/${model.id}/resolve/main/${encodeURIComponent(f.rfilename)}`;
+          return `<a href="${dlUrl}" target="_blank" class="tag tag-gguf" title="Download ${f.rfilename}" style="text-decoration:none;cursor:pointer">${short} ↗</a>`;
+        }).join('')}
+        ${ggufFiles.length > 5 ? `<span class="tag tag-gguf">+${ggufFiles.length - 5} more</span>` : ''}
+      </div>
+      <div class="model-actions">
+        ${isInstalled
+          ? `<button class="btn btn-secondary" disabled>Installed</button>`
+          : best
+            ? `<button class="btn btn-download" onclick="downloadModel('${model.id}','${best.rfilename}',${best.size||estimateModelSize(model.id, best.rfilename.match(/Q[0-9]_[A-Z]+/)?.[0] || 'Q4_K_M')})">⬇ Pull to Ollama</button>`
+            : `<button class="btn btn-secondary" disabled>No GGUF</button>`}
+        <a href="https://huggingface.co/${model.id}" target="_blank" class="btn btn-secondary" style="text-decoration:none">View on HF</a>
+      </div>
+      <div id="dl-${model.id.replace(/\//g,'-')}" class="download-progress" style="display:none;margin-top:10px"></div>
+    </div>`;
+  }).join('');
+}
+
+function downloadModel(repo, filename, size) {
+  const id = `${repo}/${filename}`;
+  if (downloads[id] && downloads[id].status === 'active') { showToast('Already downloading', 'info'); return; }
+  const displayName = repo.split('/').pop();
+  downloads[id] = { name: displayName, status: 'active', percent: 0, speed: '', downloaded: '', finishedAt: 0, _lastBytes: 0, _lastTime: Date.now(), repo, filename };
+  saveDownloads();
+  
+  const cardId = `dl-${repo.replace(/\//g,'-')}`;
+  const cardEl = document.getElementById(cardId);
+  if (cardEl) {
+    cardEl.style.display = 'block';
+    cardEl.innerHTML = `<div class="status active">Starting download...</div><div class="bar"><div class="fill" style="width:0%"></div></div>`;
+  }
+  
+  switchTab('downloads');
+  renderDownloads();
+  pullViaOllama(repo, filename, id, cardId);
+}
+
+async function pullViaOllama(repo, filename, downloadId, cardId) {
+  const hfName = `hf.co/${repo}`;
+  const d = downloads[downloadId];
+  d.speed = 'Starting...';
+  renderDownloads();
+  updateCardProgress(cardId, 0, 'Starting...');
+
+  try {
+    const res = await fetch(`${host}/api/pull`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: hfName, stream: true })
+    });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const lines = decoder.decode(value).split('\n').filter(l => l.trim());
+      for (const line of lines) {
+        try {
+          const data = JSON.parse(line);
+          if (data.total && data.completed) {
+            d.percent = Math.round((data.completed / data.total) * 100);
+            d.downloaded = `${formatSize(data.completed)} / ${formatSize(data.total)}`;
+            const now = Date.now();
+            const elapsed = (now - d._lastTime) / 1000;
+            if (elapsed > 0.5) {
+              const bytesPerSec = (data.completed - d._lastBytes) / elapsed;
+              d.speed = `${formatSize(bytesPerSec)}/s`;
+              d._lastBytes = data.completed;
+              d._lastTime = now;
+            }
+            updateCardProgress(cardId, d.percent, `${d.percent}% - ${d.speed}`);
+          } else if (data.status) {
+            d.speed = data.status;
+            updateCardProgress(cardId, d.percent, data.status);
+          }
+          saveDownloads();
+          renderDownloads();
+        } catch (e) {}
+      }
+    }
+    await fetchModels();
+    const modelInstalled = models.some(m => m.name.includes(repo.split('/').pop()));
+    if (modelInstalled) {
+      d.status = 'done'; d.percent = 100; d.finishedAt = Date.now(); d.speed = 'Complete';
+      saveDownloads();
+      updateCardProgress(cardId, 100, 'Complete!');
+      renderDownloads(); showToast(`${repo} downloaded`, 'success');
+    } else {
+      d.status = 'error'; d.error = 'Download completed but model not found in Ollama';
+      d.finishedAt = Date.now(); d.speed = 'Failed';
+      saveDownloads();
+      updateCardProgress(cardId, 0, 'Failed: model not created', true);
+      renderDownloads(); showToast(`Download finished but model not created`, 'error');
+    }
+  } catch (e) {
+    d.status = 'error'; d.error = e.message;
+    saveDownloads();
+    updateCardProgress(cardId, 0, `Error: ${e.message}`, true);
+    renderDownloads(); showToast(`Failed: ${e.message}`, 'error');
+  }
+}
+
+function updateCardProgress(cardId, percent, text, isError = false) {
+  const el = document.getElementById(cardId);
+  if (!el) return;
+  const cls = isError ? 'error' : percent >= 100 ? 'done' : 'active';
+  el.innerHTML = `<div class="status ${cls}">${text}</div>${percent < 100 ? `<div class="bar"><div class="fill" style="width:${percent}%"></div></div>` : ''}`;
+}
+
+function clearCompleted() {
+  Object.keys(downloads).forEach(k => { if (downloads[k].status === 'done') delete downloads[k]; });
+  saveDownloads();
+  renderDownloads();
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type; t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+document.getElementById('hfSearchInput').addEventListener('input', () => {
+  clearTimeout(hfSearchTimeout);
+  hfSearchTimeout = setTimeout(searchHF, 600);
+});
+
+fetchModels();
+setInterval(fetchModels, 10000);
+
+let _prevPartialSizes = {};
+
+async function syncServerDownloads() {
+  try {
+    const res = await fetch('/api/check-downloads');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.partials) return;
+    
+    const now = Date.now();
+    const activePartialIds = new Set();
+    
+    data.partials.forEach(p => {
+      const id = 'server:' + p.partial;
+      if (removedServerIds.includes(id)) return;
+      activePartialIds.add(id);
+      const prev = _prevPartialSizes[id];
+      const speed = prev && p.size > prev.size ? formatSize((p.size - prev.size) / 5) + '/s' : '';
+      _prevPartialSizes[id] = { size: p.size, time: now };
+      
+      if (!downloads[id]) {
+        const existingName = p.model || findModelNameFromSize(p.size);
+        downloads[id] = {
+          name: existingName || 'Model download',
+          status: 'active',
+          percent: 0,
+          speed: speed || 'Detecting...',
+          downloaded: formatSize(p.size),
+          finishedAt: 0,
+          _lastBytes: p.size,
+          _lastTime: now,
+          repo: 'ollama',
+          filename: p.partial,
+          _serverDetected: true
+        };
+        saveDownloads();
+      } else {
+        if (p.model && downloads[id].name === 'Model download') downloads[id].name = p.model;
+        downloads[id].speed = speed || downloads[id].speed;
+        downloads[id].downloaded = formatSize(p.size);
+        downloads[id].status = 'active';
+        downloads[id].percent = 0;
+      }
+    });
+    
+    Object.keys(downloads).forEach(k => {
+      if (k.startsWith('server:') && downloads[k].status === 'active' && !activePartialIds.has(k)) {
+        const d = downloads[k];
+        const searchTerm = d.name.toLowerCase().replace(/\.(gguf|bin|safetensors)$/, '');
+        const modelExists = models.some(m => {
+          const mName = m.name.toLowerCase();
+          return mName.includes(searchTerm) || mName.includes(d.name);
+        });
+        if (modelExists) {
+          d.status = 'done';
+          d.percent = 100;
+          d.speed = 'Complete';
+          d.finishedAt = now;
+          removedServerIds = removedServerIds.filter(id => id !== k);
+          localStorage.setItem('removedServerIds', JSON.stringify(removedServerIds));
+          fetchModels();
+        } else {
+          d.status = 'error';
+          d.error = 'Download failed or incomplete';
+          d.speed = 'Failed';
+        }
+        saveDownloads();
+      }
+    });
+    
+    data.partials.forEach(p => {
+      const id = 'server:' + p.partial;
+      if (downloads[id] && downloads[id].status === 'active') {
+        if (p.age_seconds > 120) {
+          downloads[id].speed = `Stalled (${Math.floor(p.age_seconds/60)}m ago)`;
+        } else if (p.age_seconds > 30) {
+          downloads[id].speed = 'Waiting...';
+        }
+      }
+    });
+    
+    if (currentTab === 'downloads') renderDownloadsHistory();
+  } catch (e) {}
+}
+
+function findModelNameFromSize(size) {
+  const gb = size / (1024*1024*1024);
+  if (gb > 40) return 'Large model (40GB+)';
+  if (gb > 20) return 'Large model (20GB+)';
+  if (gb > 10) return 'Medium model (10GB+)';
+  return 'Model download';
+}
+
+/* ---------------- usage / inference log ---------------- */
+const USAGE_LOG_KEY = 'usageLog';
+
+function getUsageLog() {
+  try { return JSON.parse(localStorage.getItem(USAGE_LOG_KEY) || '[]'); } catch (e) { return []; }
+}
+
+function logUsage(entry) {
+  const log = getUsageLog();
+  log.unshift(Object.assign({ ts: Date.now() }, entry));
+  if (log.length > 200) log.length = 200;
+  try { localStorage.setItem(USAGE_LOG_KEY, JSON.stringify(log)); } catch (e) {}
+  if (currentTab === 'log') renderUsageLog();
+}
+
+function clearUsageLog() {
+  if (!confirm('Clear the entire usage log?')) return;
+  try { localStorage.removeItem(USAGE_LOG_KEY); } catch (e) {}
+  renderUsageLog();
+}
+
+function renderUsageLog() {
+  const log = getUsageLog();
+  const stats = document.getElementById('logStats');
+  const list = document.getElementById('logList');
+  if (!log.length) {
+    stats.innerHTML = '';
+    list.innerHTML = `<div class="empty-state"><h2>No activity yet</h2><p>Chat messages, model starts and stops will show up here</p></div>`;
+    return;
+  }
+  const chats = log.filter(e => e.type === 'chat');
+  const tokensOut = chats.reduce((s, e) => s + (e.tokensOut || 0), 0);
+  const tokensIn = chats.reduce((s, e) => s + (e.tokensIn || 0), 0);
+  const totalMs = chats.reduce((s, e) => s + (e.durationMs || 0), 0);
+  const fmtDur = ms => ms >= 60000 ? `${Math.round(ms/60000)}m ${Math.round((ms%60000)/1000)}s` : ms >= 1000 ? `${(ms/1000).toFixed(1)}s` : `${ms}ms`;
+  stats.innerHTML = `
+    <div class="log-stat">Entries<b>${log.length}</b></div>
+    <div class="log-stat">Chat turns<b>${chats.length}</b></div>
+    <div class="log-stat">Tokens out<b>${tokensOut.toLocaleString()}</b></div>
+    <div class="log-stat">Tokens in<b>${tokensIn.toLocaleString()}</b></div>
+    <div class="log-stat">Total time<b>${fmtDur(totalMs)}</b></div>`;
+  list.innerHTML = log.map(e => {
+    const d = new Date(e.ts);
+    const time = d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const meta = e.type === 'chat'
+      ? `${(e.tokensOut || 0).toLocaleString()} out · ${(e.tokensIn || 0).toLocaleString()} in · ${fmtDur(e.durationMs || 0)}`
+      : (e.type === 'start' ? 'loaded into memory' : 'unloaded from memory');
+    const preview = e.preview ? `<div class="log-preview">${escapeHtml(e.preview)}</div>` : '';
+    return `<div class="log-item">
+      <span class="log-time">${time}</span>
+      <span class="log-kind ${e.type}">${e.type}</span>
+      <span class="log-model">${escapeHtml(e.model || '')}</span>
+      <span class="log-meta">${meta}</span>
+      ${preview}
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ---------------- chat ---------------- */
+let chatHistory = [];
+let chatBusy = false;
+
+function refreshChatModels() {
+  const sel = document.getElementById('chatModel');
+  const hint = document.getElementById('chatHint');
+  const send = document.getElementById('chatSend');
+  const input = document.getElementById('chatInput');
+  const prev = sel.value;
+  sel.innerHTML = models.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('');
+  if (prev && models.some(m => m.name === prev)) sel.value = prev;
+  const empty = models.length === 0;
+  send.disabled = empty || chatBusy;
+  input.disabled = empty || chatBusy;
+  hint.textContent = empty ? 'No models installed — pull one from Local Models or HuggingFace first' : '';
+}
+
+function addChatBubble(role, text) {
+  const box = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role}`;
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+function clearChat() {
+  chatHistory = [];
+  document.getElementById('chatMessages').innerHTML =
+    '<div class="chat-empty" id="chatEmpty">Pick a model, ask anything — replies stream in as they generate.</div>';
+}
+
+async function sendChat(e) {
+  e.preventDefault();
+  if (chatBusy) return false;
+  const input = document.getElementById('chatInput');
+  const send = document.getElementById('chatSend');
+  const text = input.value.trim();
+  const model = document.getElementById('chatModel').value;
+  if (!text || !model) return false;
+
+  const emptyEl = document.getElementById('chatEmpty');
+  if (emptyEl) emptyEl.remove();
+
+  chatHistory.push({ role: 'user', content: text });
+  addChatBubble('user', text);
+  input.value = '';
+  chatBusy = true;
+  send.disabled = true;
+  send.textContent = 'Thinking…';
+
+  const bubble = addChatBubble('assistant', '');
+  bubble.classList.add('streaming');
+  let reply = '';
+  try {
+    const res = await fetch(`${host}/api/chat`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages: chatHistory, stream: true })
+    });
+    if (!res.ok) throw new Error(`Ollama responded ${res.status}`);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let finalMsg = null;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split('\n')) {
+        if (!line.trim()) continue;
+        let obj;
+        try { obj = JSON.parse(line); } catch (err) { continue; }
+        if (obj.error) throw new Error(obj.error);
+        if (obj.message && obj.message.content) {
+          reply += obj.message.content;
+          bubble.textContent = reply;
+          document.getElementById('chatMessages').scrollTop = 1e9;
+        }
+        if (obj.done) finalMsg = obj;
+      }
+    }
+    bubble.classList.remove('streaming');
+    chatHistory.push({ role: 'assistant', content: reply });
+    logUsage({
+      type: 'chat',
+      model,
+      preview: text.slice(0, 140),
+      promptChars: text.length,
+      tokensIn: finalMsg ? finalMsg.prompt_eval_count : 0,
+      tokensOut: finalMsg ? finalMsg.eval_count : 0,
+      durationMs: finalMsg && finalMsg.total_duration ? Math.round(finalMsg.total_duration / 1e6) : 0
+    });
+  } catch (err) {
+    bubble.classList.remove('streaming');
+    bubble.classList.add('error');
+    bubble.textContent = reply ? reply + `\n\n[error: ${err.message}]` : `Error: ${err.message}`;
+    showToast(err.message, 'error');
+    chatHistory.pop();
+  } finally {
+    chatBusy = false;
+    send.disabled = false;
+    send.textContent = 'Send';
+    input.focus();
+    refreshChatModels();
+  }
+  return false;
+}
+
+syncServerDownloads();
+setInterval(syncServerDownloads, 5000);
+</script>
+</body>
+</html>
